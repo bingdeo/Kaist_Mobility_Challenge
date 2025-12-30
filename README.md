@@ -16,7 +16,7 @@
 - `config/v2v_bridge.yaml` : Domain Bridge 설정
 - `waypoints/path_p1_2_cav1.json` : cav1 경로
 - `waypoints/path_p1_2_cav2.json` : cav2 경로
-- `tools/zone_database.json` : zone/conflict map (monitor/danger 판단용)
+- `tools/zone_database.json` : zone/conflict map (monitor/danger 판단용) 만들 때 사용한 파일은 'tools/zone_generator.py'
 
 실행 노드:
 - `p1_2_follower_cav1`
