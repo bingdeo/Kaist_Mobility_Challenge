@@ -1,8 +1,6 @@
-# SMYD – Mobility Challenge P1-2 (2 CAV) V2V Setup / Run Guide
+# SMYD – Mobility Challenge Setup / Run Guide
 
-이 레포는 **예선 1번 / 본선 1-2번**(2대 CAV 협력 주행)에서, **ROS_DOMAIN_ID를 1/2로 분리**하고 **Domain Bridge로 V2V 상태를 공유**하기 위한 `smyd` 패키지입니다.
-
-현재 구현 상태(중요):
+현재 구현 상태(1-2):
 - 각 CAV는 **자기 경로 follower**로 주행합니다.
 - 각 CAV는 **zone_id / in_danger / eta**를 계산해서 **V2V 토픽으로 publish**합니다.
 - Domain Bridge로 서로의 V2V 토픽이 **/peer/...**로 전달되는지 확인 가능합니다.
