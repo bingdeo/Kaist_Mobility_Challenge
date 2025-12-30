@@ -71,7 +71,7 @@ source ~/Mobility_Challenge_Simulator/install/setup.bash
 
 ```bash
 export ROS_DOMAIN_ID=100
-ros2 launch <SIM_LAUNCH_PACKAGE> <SIM_LAUNCH_FILE>.launch.py
+ros2 launch ros2 launch simulator_launch simulator_launch.py
 ```
 
 ---
