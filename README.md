@@ -31,7 +31,7 @@
 
 ```bash
 cd ~/Mobility_Challenge_Simulator/src
-git clone <PRIVATE_REPO_URL> smyd
+git clone https://github.com/InHyunseo/kaist_project_smyd smyd
 ````
 
 빌드:
