@@ -106,7 +106,7 @@ export ROS_DOMAIN_ID=1
 
 ros2 run smyd p1_2_follower_cav1 --ros-args \
   -p waypoints_json:=$(ros2 pkg prefix smyd)/share/smyd/waypoints/path_p1_2_cav1.json \
-  -p conflict_map_json:=$(ros2 pkg prefix smyd)/share/smyd/tools/conflict_map_p1_2.json \
+  -p conflict_map_json:=$(ros2 pkg prefix smyd)/share/smyd/tools/zone_database.json \
   -p v_ref:=0.6 \
   -p w_max:=5.0 \
   -p my_share_topic:=/cav1/v2v_state \
@@ -120,7 +120,7 @@ export ROS_DOMAIN_ID=2
 
 ros2 run smyd p1_2_follower_cav2 --ros-args \
   -p waypoints_json:=$(ros2 pkg prefix smyd)/share/smyd/waypoints/path_p1_2_cav2.json \
-  -p conflict_map_json:=$(ros2 pkg prefix smyd)/share/smyd/tools/conflict_map_p1_2.json \
+  -p conflict_map_json:=$(ros2 pkg prefix smyd)/share/smyd/tools/zone_database.json \
   -p v_ref:=0.6 \
   -p w_max:=5.0 \
   -p my_share_topic:=/cav2/v2v_state \
