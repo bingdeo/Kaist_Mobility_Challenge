@@ -1,7 +1,7 @@
 # SMYD – Mobility Challenge Setup / Run Guide
 
 현재 구현 상태(1-2):
-- 각 CAV는 **자기 경로 follower**로 주행합니다.
+- 각 CAV는 **자기 경로 follower**로 주행
 - 각 CAV는 **zone_id / in_danger / eta**를 계산해서 **V2V 토픽으로 publish**합니다.
 - Domain Bridge로 서로의 V2V 토픽이 **/peer/...**로 전달되는지 확인 가능합니다.
 - **감속(yield) 로직은 아직 미구현**입니다. (V2V 통신 + zone/ETA 산출 검증 단계)
