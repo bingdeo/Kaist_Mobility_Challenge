@@ -80,8 +80,8 @@ ros2 launch ros2 launch simulator_launch simulator_launch.py
 
 ```bash
 export ROS_DOMAIN_ID=99
-ros2 run domain_bridge domain_bridge --ros-args \
-  -p config_file:=$(ros2 pkg prefix smyd)/share/smyd/config/v2v_bridge.yaml
+CFG="$(ros2 pkg prefix smyd)/share/smyd/config/v2v_bridge.yaml"
+ros2 run domain_bridge domain_bridge "$CFG"
 ```
 
 ### 4-1. v2v_bridge.yaml 내용(참고)
