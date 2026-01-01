@@ -4,7 +4,9 @@ import json
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
-from geometry_msgs.msg import PoseStamped, Accel, AccelStamped
+from geometry_msgs.msg import PoseStamped, Accel
+from scipy.spatial import KDTree  # 충돌 감지용 KDTree 추가
+from smyd.Collision_Avoidance import CollisionAvoidance # 회피 모듈 추가
 
 
 def yaw_from_pose(msg: PoseStamped) -> float:
@@ -12,12 +14,15 @@ def yaw_from_pose(msg: PoseStamped) -> float:
 
     # Simulator Euler-packed format:
     # orientation.x=roll, y=pitch, z=yaw (rad), w=1.0(dummy)
+    # Heuristic: any component magnitude > 1.0 => not a quaternion
     if abs(q.w - 1.0) < 1e-3 and (abs(q.x) > 1.0 or abs(q.y) > 1.0 or abs(q.z) > 1.0):
         return float(q.z)
 
+    # Normal quaternion -> yaw
     siny = 2.0 * (q.w*q.z + q.x*q.y)
     cosy = 1.0 - 2.0 * (q.y*q.y + q.z*q.z)
     return math.atan2(siny, cosy)
+
 
 
 class P12Follower(Node):
@@ -28,66 +33,87 @@ class P12Follower(Node):
         self.declare_parameter("v_ref", 0.6)
         self.declare_parameter("w_max", 5.0)
 
-        # V2V (state only)
-        self.declare_parameter("my_share_topic", "/cav1/v2v_state")
-        self.declare_parameter("peer_share_topic", "/peer/cav2/v2v_state")
+        # for V2V communication
+        self.declare_parameter("my_share_topic", "/cav1/share")
+        self.declare_parameter("peer_share_topic", "/peer/cav2/share")
+        
+        # (추가) 충돌 감지를 위한 파라미터
+        self.declare_parameter("peer_waypoints_json", "")
+        self.declare_parameter("monitoring_zones_json", "")
 
-        # conflict map (your conflict_map_p1_2.json)
-        # zones_json도 남겨서 호환되게 처리
-        self.declare_parameter("conflict_map_json", "")
-        self.declare_parameter("zones_json", "")  # fallback
+        my_topic = self.get_parameter("my_share_topic").value
+        peer_topic = self.get_parameter("peer_share_topic").value
 
-        # sampling + CROSS_POINT danger length
-        self.declare_parameter("ds_per_point", 0.01)          # 0.01m
-        self.declare_parameter("point_danger_points", 30)     # 0.3m 점유(필요시 조절)
+        # (deprecated) kept for CLI compatibility, but not used anymore
+        self.declare_parameter("lookahead_idx", 30)
 
         self.declare_parameter("search_window", 600)
-        self.declare_parameter("peer_timeout", 0.8)  # seconds
 
         wp = self.get_parameter("waypoints_json").value
         if not wp:
             raise RuntimeError("waypoints_json is empty")
+            
+        peer_wp = self.get_parameter("peer_waypoints_json").value
+        zones_file = self.get_parameter("monitoring_zones_json").value
+
+        self.declare_parameter("alpha_w", 0.8)   # 0~1, 높을수록 더 부드러움(0.75~0.9)
+        self.declare_parameter("dw_max", 10.0)   # rad/s^2, w 변화율 제한(8~20)
+        self.alpha_w = float(self.get_parameter("alpha_w").value)
+        self.dw_max = float(self.get_parameter("dw_max").value)
+
+        self.w_prev = 0.0
+        self.t_prev = self.get_clock().now()
 
         self.v_ref = float(self.get_parameter("v_ref").value)
         self.w_max = float(self.get_parameter("w_max").value)
         self.win = int(self.get_parameter("search_window").value)
-        self.peer_timeout = float(self.get_parameter("peer_timeout").value)
-
-        self.ds_per_point = float(self.get_parameter("ds_per_point").value)
-        self.point_danger_points = int(self.get_parameter("point_danger_points").value)
 
         self.pts = self.load_json(wp)
         if len(self.pts) < 5:
             raise RuntimeError("waypoints too short")
+
         self.N = len(self.pts)
 
         # unwrapped progress index (monotonic)
         self.idx_u = 0
-        self.allow_back = 0
+        self.allow_back = 0  # 0 = never go backward
 
-        # control I/O (simulator interface)
         self.sub = self.create_subscription(PoseStamped, "/Ego_pose", self.cb, qos_profile_sensor_data)
         self.pub = self.create_publisher(Accel, "/Accel", qos_profile_sensor_data)
 
-        # V2V state pub/sub
-        my_topic = self.get_parameter("my_share_topic").value
-        peer_topic = self.get_parameter("peer_share_topic").value
-        self.share_pub = self.create_publisher(AccelStamped, my_topic, qos_profile_sensor_data)
-        self.peer_sub = self.create_subscription(AccelStamped, peer_topic, self.cb_peer, qos_profile_sensor_data)
-        self.peer_state = None
+        # (추가) V2V pub/sub
+        self.share_pub = self.create_publisher(PoseStamped, my_topic, qos_profile_sensor_data)
+        self.peer_sub  = self.create_subscription(PoseStamped, peer_topic, self.cb_peer, qos_profile_sensor_data)
 
-        # load conflict map (cav1 = path1)
-        self.path_key = "path1"
-        cm_path = self.get_parameter("conflict_map_json").value
-        if not cm_path:
-            cm_path = self.get_parameter("zones_json").value  # fallback
-        if not cm_path:
-            raise RuntimeError("conflict_map_json (or zones_json) is empty")
+        self.peer_pose = None  # (추가) 상대 최신 PoseStamped 저장
+        self.collision_flag = False # 충돌 위험 플래그
+        
+        # (추가) 회피 모듈 초기화
+        self.avoider = CollisionAvoidance(self)
 
-        self.zones = self.load_conflict_map(cm_path, self.path_key)
+        # (추가) 충돌 감지용 데이터 로드 및 KDTree 생성
+        self.tree_my = KDTree(self.pts)
+        self.tree_peer = None
+        self.zones = []
+
+        if peer_wp:
+            try:
+                self.peer_pts = self.load_json(peer_wp)
+                self.tree_peer = KDTree(self.peer_pts)
+                self.get_logger().info(f"Loaded peer pts={len(self.peer_pts)}")
+            except Exception as e:
+                self.get_logger().warn(f"Failed to load peer waypoints: {e}")
+
+        if zones_file:
+            try:
+                with open(zones_file, 'r') as f:
+                    self.zones = json.load(f)
+                self.get_logger().info(f"Loaded {len(self.zones)} monitoring zones")
+            except Exception as e:
+                self.get_logger().warn(f"Failed to load monitoring zones: {e}")
 
         self.get_logger().info(f"Loaded pts={len(self.pts)} file={wp}")
-        self.get_logger().info(f"Loaded conflict zones={len(self.zones)} file={cm_path}")
+        self.get_logger().info("Lookahead is fixed to the next waypoint (i+10).")
 
     def load_json(self, path):
         with open(path, "r") as f:
@@ -95,6 +121,7 @@ class P12Follower(Node):
 
         X = data.get("X", data.get("x"))
         Y = data.get("Y", data.get("y"))
+
         if X is None or Y is None:
             raise RuntimeError("JSON must contain X,Y (or x,y)")
         if len(X) != len(Y):
@@ -102,35 +129,6 @@ class P12Follower(Node):
 
         return [(float(x), float(y)) for x, y in zip(X, Y)]
 
-    def load_conflict_map(self, path, path_key):
-        with open(path, "r") as f:
-            data = json.load(f)
-
-        zones = []
-        for z in data.get("zones", []):
-            zid = int(z["zone_id"])
-            kind = z.get("kind", "")
-
-            p = z[path_key]
-            ms = int(p["monitor_start_idx"])
-            cs = int(p["conflict_start_idx"])
-            ce = p.get("conflict_end_idx", None)
-            ce = int(ce) if ce is not None else None
-
-            # CROSS_POINT는 end가 없으니, 점유(danger) 길이를 짧게라도 부여
-            if ce is None:
-                ce = (cs + self.point_danger_points) % self.N
-            else:
-                ce = ce % self.N
-
-            zones.append({
-                "zone_id": zid,
-                "kind": kind,
-                "monitor_start": ms % self.N,
-                "conflict_start": cs % self.N,
-                "conflict_end": ce,
-            })
-        return zones
 
     def nearest_index(self, x, y):
         back = 50
@@ -148,6 +146,19 @@ class P12Follower(Node):
                 best_d2 = d2
                 best_j = j
 
+        # (추가) Reset Detection: 로컬 검색 결과가 신뢰도가 낮으면(1m 이상) KDTree로 전역 검색 확인
+        # 기존 3m(9.0) -> 1m(1.0)로 기준 강화
+        if best_d2 > 1.0:
+            d, idx = self.tree_my.query([x, y])
+            
+            # 전역 검색 결과가 로컬 검색보다 훨씬 더 가까우면(예: 1m 이상 차이) 리셋
+            # 또는 전역 검색이 매우 가까우면(0.5m 이내) 리셋
+            if d < math.sqrt(best_d2) - 1.0 or d < 0.5:
+                self.get_logger().warn(f"Track lost (local={math.sqrt(best_d2):.1f}m, global={d:.1f}m). Resetting index to {idx}")
+                self.idx_u = int(idx)
+                return self.idx_u
+
+        # enforce monotonic progress
         if best_j < self.idx_u - self.allow_back:
             best_j = self.idx_u
 
@@ -162,93 +173,104 @@ class P12Follower(Node):
 
         msg = Accel()
         msg.linear.x = float(v)
+        # documentation can be inconsistent; set both
         msg.angular.x = float(w)
         msg.angular.z = float(w)
         self.pub.publish(msg)
 
-    # ---------- V2V ----------
-    def cb_peer(self, msg: AccelStamped):
-        a = msg.accel
-        self.peer_state = {
-            "zone": int(round(a.linear.x)),
-            "in_danger": int(round(a.linear.y)),  # 0/1
-            "eta": float(a.linear.z),
-            "t": msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9,
-        }
+    def cb_peer(self, msg: PoseStamped):
+        # self.get_logger().info(f"Received peer pose: {msg.pose.position.x:.2f}, {msg.pose.position.y:.2f}", throttle_duration_sec=2.0)
+        self.peer_pose = msg  # 상대 최신 포즈 업데이트
 
-    def peer_is_fresh(self):
-        if self.peer_state is None:
-            return False
-        now = self.get_clock().now().nanoseconds * 1e-9
-        return (now - self.peer_state["t"]) < self.peer_timeout
+    def check_collision_risk(self, my_x, my_y, my_idx):
+        if not self.peer_pose or not self.tree_peer or not self.zones:
+            return
 
-    def publish_v2v(self, zone_id, in_danger, eta):
-        m = AccelStamped()
-        m.header.stamp = self.get_clock().now().to_msg()
-        m.accel.linear.x = float(zone_id)
-        m.accel.linear.y = float(in_danger)  # 0/1
-        m.accel.linear.z = float(eta)
-        self.share_pub.publish(m)
+        peer_x = self.peer_pose.pose.position.x
+        peer_y = self.peer_pose.pose.position.y
 
-    # ---------- zone logic ----------
-    def _in_range(self, idx, a, b):
-        # inclusive range, wrap-around supported
-        if a <= b:
-            return a <= idx <= b
-        return (idx >= a) or (idx <= b)
+        # 1. 상대 위치의 인덱스 찾기 (KDTree 사용)
+        # _, my_idx = self.tree_my.query((my_x, my_y))  <-- 인자로 받음
+        _, peer_idx = self.tree_peer.query((peer_x, peer_y))
+        
+        # my_idx = int(my_idx)
+        peer_idx = int(peer_idx)
 
-    def compute_zone_state(self, cur_idx_mod, v_used):
-        best = None  # (priority, eta, zone_id, in_danger)
-        v = max(float(v_used), 0.05)
+        risk_detected = False
+        target_zone_id = None
+        
+        # 2. Zone 검사
+        for zone in self.zones:
+            z_id = zone['id']
+            
+            # CAV1(나) -> cav1_waypoint_index_range
+            # CAV2(상대) -> cav2_waypoint_index_range
+            my_zone_range = zone['cav1_waypoint_index_range']
+            peer_zone_range = zone['cav2_waypoint_index_range']
 
-        for z in self.zones:
-            zid = z["zone_id"]
-            ms = z["monitor_start"]
-            cs = z["conflict_start"]
-            ce = z["conflict_end"]
+            my_start, my_end = my_zone_range['start'], my_zone_range['end']
+            peer_start, peer_end = peer_zone_range['start'], peer_zone_range['end']
 
-            # danger(점유) 우선
-            if self._in_range(cur_idx_mod, cs, ce):
-                cand = (0, 0.0, zid, 1)
-                if best is None or cand < best:
-                    best = cand
+            # (수정) 누적 인덱스(my_idx)를 현재 바퀴의 인덱스로 변환하여 비교
+            curr_my_idx = my_idx % self.N
+
+            # (추가) 이미 지난 Zone은 계산하지 않음
+            if curr_my_idx > my_end:
                 continue
+            
+            # 남은 인덱스 (음수면 이미 진입했거나 지남)
+            diff_my = my_start - curr_my_idx
+            diff_peer = peer_start - peer_idx
 
-            # monitor(접근): monitor_start ~ conflict_start 직전
-            # (wrap 포함)
-            end_monitor = (cs - 1) % self.N
-            if self._in_range(cur_idx_mod, ms, end_monitor):
-                remain_pts = (cs - cur_idx_mod) % self.N
-                dist = remain_pts * self.ds_per_point
-                eta = dist / v
-                cand = (1, eta, zid, 0)
-                if best is None or cand < best:
-                    best = cand
+            # (추가) Zone 시작점과 50cm 이내로 가까워지면 Zone ID 출력
+            sx, sy = self.pts[my_start]
+            dist_to_start = math.hypot(sx - my_x, sy - my_y)
+            
+            if dist_to_start < 0.5:
+                self.get_logger().info(f"[ZONE INFO] Approaching Zone {z_id} (dist={dist_to_start:.2f}m)")
+            
+            # 두 차량 모두 Zone을 향해 가고 있고(양수), 50 인덱스 이내로 근접
+            # 또는 이미 진입한 경우(음수)도 고려해야 함 -> my_idx <= my_end
+            THRESHOLD_IDX = 50
+            
+            is_my_risk = (curr_my_idx <= my_end) and (diff_my < THRESHOLD_IDX)
+            is_peer_risk = (peer_idx <= peer_end) and (diff_peer < THRESHOLD_IDX)
 
-        if best is None:
-            return -1, 0, 1e9
+            if is_my_risk and is_peer_risk:
+                risk_detected = True
+                target_zone_id = z_id
+                self.get_logger().warn(
+                    f"[COLLISION WARNING] Zone {z_id} Risk! "
+                    f"Me(idx={curr_my_idx})->ZoneStart({my_start}) remain={diff_my}, "
+                    f"Peer(idx={peer_idx})->ZoneStart({peer_start}) remain={diff_peer}"
+                )
+                
+                # (추가) 회피 기동 실행
+                self.avoider.execute_avoidance(z_id)
+                
+                break
+        
+        # (Optional) Flag logic if needed elsewhere
+        self.collision_flag = risk_detected
 
-        _, eta, zid, in_danger = best
-        return zid, in_danger, float(eta)
-
-    # ---------- main callback ----------
     def cb(self, msg: PoseStamped):
+
+        # (추가) 내 포즈를 V2V로 송신 (그대로 relay)
+        self.share_pub.publish(msg)
+        
         x = float(msg.pose.position.x)
         y = float(msg.pose.position.y)
         yaw = yaw_from_pose(msg)
 
-        i = self.nearest_index(x, y)
-        idx_mod = i % self.N
+        i = self.nearest_index(x, y)   # unwrapped
 
-        # publish my V2V state (zone_id, in_danger, eta)
-        zone_id, in_danger, eta = self.compute_zone_state(idx_mod, self.v_ref)
-        self.publish_v2v(zone_id, in_danger, eta)
+        # (추가) 충돌 감지 로직 실행 (이미 계산된 인덱스 i 사용)
+        self.check_collision_risk(x, y, i)
 
-        # (yield 로직은 다음 단계에서 v_cmd만 제한하면 됨)
-        v_cmd = self.v_ref
+        # ✅ lookahead = "next waypoint"
+        tgt = i + 10                    # unwrapped target (always next)
 
-        # lookahead
-        tgt = i + 10
+        # make sure the target is in front of the car
         for _ in range(10):
             tx, ty = self.pts[tgt % self.N]
             dx = tx - x
@@ -267,6 +289,7 @@ class P12Follower(Node):
             sin_y = math.sin(yaw)
             x_r = cos_y*dx + sin_y*dy
 
+        # Pure Pursuit: w = v * kappa, kappa = 2*y_r / L^2
         y_r = -sin_y*dx + cos_y*dy
         L = math.hypot(x_r, y_r)
         if L < 1e-3:
@@ -274,9 +297,9 @@ class P12Follower(Node):
             return
 
         kappa = 2.0 * y_r / (L * L)
-        w = v_cmd * kappa
+        w = self.v_ref * kappa
 
-        self.publish(v_cmd, w)
+        self.publish(self.v_ref, w)
 
 
 def main():
