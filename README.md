@@ -228,7 +228,7 @@ ros2 topic echo /Accel
 설치 경로 확인:
 
 ```bash
-ls $(ros2 pkg prefix smyd)/share/smyd/tools/conflict_map_p1_2.json
+ls $(ros2 pkg prefix smyd)/share/smyd/tools/zone_database.json
 ```
 
 ### 10-3) “echo가 보이는데 값이 -1, 1e9만 나온다”
