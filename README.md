@@ -47,7 +47,6 @@ colcon build --symlink-install
 새 터미널을 열 때마다 아래 2줄을 실행해야 합니다.
 
 ```bash
-source /opt/ros/foxy/setup.bash
 source ~/Mobility_Challenge_Simulator/install/setup.bash
 ```
 
@@ -72,7 +71,7 @@ source ~/Mobility_Challenge_Simulator/install/setup.bash
 
 ```bash
 export ROS_DOMAIN_ID=100
-ros2 launch ros2 launch simulator_launch simulator_launch.py
+ros2 launch simulator_launch simulator_launch.py
 ```
 
 ---
