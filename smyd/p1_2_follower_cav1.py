@@ -5,6 +5,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from geometry_msgs.msg import PoseStamped, Accel, AccelStamped
+from smyd.Collision_Avoidance import CollisionAvoidance
 
 
 def yaw_from_pose(msg: PoseStamped) -> float:
@@ -46,7 +47,8 @@ class P12Follower(Node):
         self.declare_parameter("tie_eta_sec", 1.0)     # |Δeta| <= tie => cav1 우선
         self.declare_parameter("eta_gate_sec", 5.0)     # 너무 멀리서 감속 방지
         self.declare_parameter("yield_ratio", 0.5)     # 감속 비율 (v_cmd *= yield_ratio)
-        self.declare_parameter("v_min", 0.20)           # 정지는 안 됨 (최저 속도)
+        self.declare_parameter("v_min", 0.20)    
+        # 정지는 안 됨 (최저 속도)
 
         wp = self.get_parameter("waypoints_json").value
         if not wp:
@@ -100,6 +102,15 @@ class P12Follower(Node):
 
         self.get_logger().info(f"Loaded pts={len(self.pts)} file={wp}")
         self.get_logger().info(f"Loaded conflict zones={len(self.zones)} file={cm_path}")
+        
+        # Collision Avoidance module
+        self.ca = CollisionAvoidance(self)
+        
+        # Zone tracking for logging
+        self.prev_zone_id = -1
+        self.prev_in_danger = 0
+        self.prev_in_conflict = False
+        self.zone_log_lap = {}  # Track which lap we logged for each zone
 
     def load_json(self, path):
         with open(path, "r") as f:
@@ -186,6 +197,8 @@ class P12Follower(Node):
             "in_danger": int(round(a.linear.y)),  # 0/1
             "eta": float(a.linear.z),
             "lap": int(round(a.angular.x)),
+            "x": float(a.angular.y),  # x 좌표
+            "y": float(a.angular.z),  # y 좌표
             "t": msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9,
         }
 
@@ -195,13 +208,15 @@ class P12Follower(Node):
         now = self.get_clock().now().nanoseconds * 1e-9
         return (now - self.peer_state["t"]) < self.peer_timeout
 
-    def publish_v2v(self, zone_id, in_danger, eta, lap):
+    def publish_v2v(self, zone_id, in_danger, eta, lap, x, y):
         m = AccelStamped()
         m.header.stamp = self.get_clock().now().to_msg()
         m.accel.linear.x = float(zone_id)
         m.accel.linear.y = float(in_danger)  # 0/1
         m.accel.linear.z = float(eta)
         m.accel.angular.x = float(lap)       # lap 공유
+        m.accel.angular.y = float(x)         # x 좌표
+        m.accel.angular.z = float(y)         # y 좌표
         self.share_pub.publish(m)
 
     # ---------- zone logic ----------
@@ -212,7 +227,11 @@ class P12Follower(Node):
         return (idx >= a) or (idx <= b)
 
     def compute_zone_state(self, cur_idx_mod, v_used):
-        best = None  # (priority, eta, zone_id, in_danger)
+        """
+        현재 위치에서 가장 우선순위 높은 zone의 상태 반환
+        in_danger는 여기서 설정하지 않음 (호출한 곳에서 peer와 비교하여 설정)
+        """
+        best = None  # (priority, eta, zone_id, in_conflict)
         v = max(float(v_used), 0.05)
 
         for z in self.zones:
@@ -221,30 +240,68 @@ class P12Follower(Node):
             cs = z["conflict_start"]
             ce = z["conflict_end"]
 
-            # danger(점유) 우선
+            # conflict zone 내부 (점유 중) - 우선순위 0
             if self._in_range(cur_idx_mod, cs, ce):
-                cand = (0, 0.0, zid, 1)
+                cand = (0, 0.0, zid, 1)  # in_conflict=1
                 if best is None or cand < best:
                     best = cand
                 continue
 
-            # monitor(접근): monitor_start ~ conflict_start 직전
-            # (wrap 포함)
+            # monitoring zone (접근 중): monitor_start ~ conflict_start 직전
             end_monitor = (cs - 1) % self.N
             if self._in_range(cur_idx_mod, ms, end_monitor):
                 remain_pts = (cs - cur_idx_mod) % self.N
                 dist = remain_pts * self.ds_per_point
                 eta = dist / v
-                cand = (1, eta, zid, 0)
+                cand = (1, eta, zid, 0)  # in_conflict=0
                 if best is None or cand < best:
                     best = cand
 
         if best is None:
             return -1, 0, 1e9
 
-        _, eta, zid, in_danger = best
-        return zid, in_danger, float(eta)
+        _, eta, zid, in_conflict = best
+        return zid, in_conflict, float(eta)
 
+    def log_zone_status(self, zone_id, in_danger, in_conflict, lap_now):
+        """Log zone entry/exit/danger status with colors"""
+        YELLOW = '\033[93m'
+        RED = '\033[91m'
+        BLUE = '\033[94m'
+        RESET = '\033[0m'
+        
+        # Zone entry (monitoring zone)
+        if zone_id >= 0 and zone_id != self.prev_zone_id:
+            log_key = (zone_id, lap_now, 'entry')
+            if log_key not in self.zone_log_lap:
+                self.get_logger().info(f"{YELLOW}zone_id:{zone_id}에 접근 중{RESET}")
+                self.zone_log_lap[log_key] = True
+        
+        # Collision danger (both in same zone)
+        if in_danger == 1 and self.prev_in_danger == 0 and zone_id >= 0:
+            log_key = (zone_id, lap_now, 'danger')
+            if log_key not in self.zone_log_lap:
+                self.get_logger().info(f"{RED}zone_id:{zone_id}에서 충돌위험(in_danger) 발생{RESET}")
+                self.zone_log_lap[log_key] = True
+        
+        # Exit from conflict zone
+        if self.prev_in_conflict and not in_conflict and self.prev_zone_id >= 0:
+            log_key = (self.prev_zone_id, lap_now, 'exit_conflict')
+            if log_key not in self.zone_log_lap:
+                self.get_logger().info(f"{YELLOW}zone_id:{self.prev_zone_id}에서 나옴{RESET}")
+                self.zone_log_lap[log_key] = True
+        
+        # Complete pass through zone (zone changed)
+        if zone_id != self.prev_zone_id and self.prev_zone_id >= 0:
+            log_key = (self.prev_zone_id, lap_now, 'pass')
+            if log_key not in self.zone_log_lap:
+                self.get_logger().info(f"{BLUE}zone_id:{self.prev_zone_id}에서 통과함{RESET}")
+                self.zone_log_lap[log_key] = True
+        
+        self.prev_zone_id = zone_id
+        self.prev_in_danger = in_danger
+        self.prev_in_conflict = in_conflict
+    
     # ====== (3) 우선순위 감속 로직: "하나의 함수"로 묶어서 추가 ======
     def priority_speed(self, v_cmd, my_zone, my_in_danger, my_eta, my_lap):
         # peer 없거나 zone 없으면 그대로
@@ -293,12 +350,33 @@ class P12Follower(Node):
             self.get_logger().info(f"Lap = {self.lap}")
 
         # publish my V2V state (zone_id, in_danger, eta)
-        zone_id, in_danger, eta = self.compute_zone_state(idx_mod, self.v_ref)
-        self.publish_v2v(zone_id, in_danger, eta, self.lap)
+        # compute_zone_state는 in_conflict 반환 (conflict zone 내부 여부)
+        zone_id, in_conflict, eta = self.compute_zone_state(idx_mod, self.v_ref)
+        
+        # in_danger는 peer와 같은 zone에 있을 때만 1
+        in_danger = 0
+        if zone_id >= 0 and self.peer_is_fresh() and self.peer_state:
+            p_zone = int(self.peer_state.get("zone", -1))
+            if p_zone == zone_id:
+                in_danger = 1
+        
+        self.publish_v2v(zone_id, in_danger, eta, self.lap, x, y)
+        
+        # Log zone status
+        self.log_zone_status(zone_id, in_danger, in_conflict, self.lap)
 
         # v_cmd: priority logic로 감속(정지 없음)
         v_cmd = self.v_ref
-        v_cmd = self.priority_speed(v_cmd, zone_id, in_danger, eta, self.lap)
+        
+        # Collision avoidance when in danger
+        if in_danger == 1 and self.peer_is_fresh() and self.peer_state:
+            peer_eta = float(self.peer_state.get("eta", 1e9))
+            peer_lap = int(self.peer_state.get("lap", 0))
+            peer_x = float(self.peer_state.get("x", 0.0))
+            peer_y = float(self.peer_state.get("y", 0.0))
+            v_cmd = self.ca.avoid_collision(zone_id, v_cmd, eta, peer_eta, self.lap, peer_lap, x, y, peer_x, peer_y, self.is_cav1)
+        else:
+            v_cmd = self.priority_speed(v_cmd, zone_id, in_danger, eta, self.lap)
 
         # lookahead
         tgt = i + 30

@@ -13,7 +13,8 @@ setup(
         ('share/' + package_name + '/config', ['config/v2v_bridge.yaml']),
         ('share/' + package_name + '/waypoints', [
             'waypoints/path_p1_2_cav1.json',
-            'waypoints/path_p1_2_cav2.json'
+            'waypoints/path_p1_2_cav2.json',
+            '../../tool/conflict_zones.json'
             ]),
         ('share/' + package_name + '/tools', [
             'smyd/tools/zone_database.json'

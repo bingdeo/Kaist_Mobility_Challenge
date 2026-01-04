@@ -5,14 +5,15 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from geometry_msgs.msg import PoseStamped, Accel
+from ament_index_python.packages import get_package_share_directory
+import os
+import numpy as np
 
 
 def yaw_from_pose(msg: PoseStamped) -> float:
     q = msg.pose.orientation
 
     # Simulator Euler-packed format:
-    # orientation.x=roll, y=pitch, z=yaw (rad), w=1.0(dummy)
-    # Heuristic: any component magnitude > 1.0 => not a quaternion
     if abs(q.w - 1.0) < 1e-3 and (abs(q.x) > 1.0 or abs(q.y) > 1.0 or abs(q.z) > 1.0):
         return float(q.z)
 
@@ -21,25 +22,77 @@ def yaw_from_pose(msg: PoseStamped) -> float:
     cosy = 1.0 - 2.0 * (q.y*q.y + q.z*q.z)
     return math.atan2(siny, cosy)
 
+class SteeringPID:
+    def __init__(self, Kp, Ki, Kd, i_limit=0.5):
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
 
+        self.i_limit = i_limit
+        self.e_prev = 0.0
+        self.e_int = 0.0
+
+    def reset(self):
+        self.e_prev = 0.0
+        self.e_int = 0.0
+
+    def update(self, e, dt):
+        if dt <= 0.0:
+            return 0.0
+
+        # Integral
+        self.e_int += e * dt
+        self.e_int = max(-self.i_limit, min(self.i_limit, self.e_int))
+
+        # Derivative
+        de = (e - self.e_prev) / dt
+        self.e_prev = e
+
+        # PID output (steering angle [rad])
+        delta_fb = (
+            self.Kp * e +
+            self.Ki * self.e_int +
+            self.Kd * de
+        )
+        return delta_fb
 
 class P11Follower(Node):
     def __init__(self):
-        super().__init__("p1_1_follower")
+        super().__init__("pp")
 
         self.declare_parameter("waypoints_json", "")
-        self.declare_parameter("v_ref", 0.6)
+        self.declare_parameter("v_ref", 2.0)
         self.declare_parameter("w_max", 5.0)
+        self.v_ref = float(self.get_parameter("v_ref").value)
+        self.w_max = float(self.get_parameter("w_max").value)
 
         # (deprecated) kept for CLI compatibility, but not used anymore
-        self.declare_parameter("lookahead_idx", 30)
-
+        # self.declare_parameter("lookahead_idx", 30)
         self.declare_parameter("search_window", 600)
+        self.win = int(self.get_parameter("search_window").value)
 
-        wp = self.get_parameter("waypoints_json").value
-        if not wp:
-            raise RuntimeError("waypoints_json is empty")
+        # wp
+        # waypoints path
+        wp_param = self.get_parameter("waypoints_json").value
 
+        if wp_param:
+            # 1) launch / CLI에서 경로를 줬으면 그걸 사용
+            wp = wp_param
+        else:
+            # 2) 기본값: cav 패키지의 waypoints/path.json
+            pkg_share = get_package_share_directory("cav")
+            wp = os.path.join(pkg_share, "waypoints", "cav1_path.json")
+
+        self.get_logger().info(f"Using waypoints file: {wp}")
+
+        # waypoints(wp)
+        self.pts = self.load_json(wp)
+        if len(self.pts) < 5:
+            raise RuntimeError("waypoints too short")
+
+        self.N = len(self.pts)
+
+        # 조향 안정화 param
         self.declare_parameter("alpha_w", 0.8)   # 0~1, 높을수록 더 부드러움(0.75~0.9)
         self.declare_parameter("dw_max", 10.0)   # rad/s^2, w 변화율 제한(8~20)
         self.alpha_w = float(self.get_parameter("alpha_w").value)
@@ -48,25 +101,48 @@ class P11Follower(Node):
         self.w_prev = 0.0
         self.t_prev = self.get_clock().now()
 
-        self.v_ref = float(self.get_parameter("v_ref").value)
-        self.w_max = float(self.get_parameter("w_max").value)
-        self.win = int(self.get_parameter("search_window").value)
-
-        self.pts = self.load_json(wp)
-        if len(self.pts) < 5:
-            raise RuntimeError("waypoints too short")
-
-        self.N = len(self.pts)
-
         # unwrapped progress index (monotonic)
         self.idx_u = 0
         self.allow_back = 0  # 0 = never go backward
 
+        # lap timing
+        self.start_time = None
+        self.prev_lap = 0
+
+        # sub/pub
         self.sub = self.create_subscription(PoseStamped, "/Ego_pose", self.cb, qos_profile_sensor_data)
         self.pub = self.create_publisher(Accel, "/Accel", qos_profile_sensor_data)
 
         self.get_logger().info(f"Loaded pts={len(self.pts)} file={wp}")
-        self.get_logger().info("Lookahead is fixed to the next waypoint (i+10).")
+        self.get_logger().info("Lookahead is fixed to the next waypoint (i+60).")
+
+        # ---- PID params ----
+
+        # PID gains
+        self.declare_parameter("Kp", 0.2)
+        self.declare_parameter("Ki", 0.0)
+        self.declare_parameter("Kd", 0.0)
+
+
+        self.pid = SteeringPID(
+            Kp=float(self.get_parameter("Kp").value),
+            Ki=float(self.get_parameter("Ki").value),
+            Kd=float(self.get_parameter("Kd").value),
+            i_limit=0.3
+        )
+      
+        # PID state
+        self.e_prev = 0.0
+        self.e_int = 0.0
+
+        log_path = "/tmp/pid_log.csv"
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        # pkg = get_package_share_directory("cav")
+        # log_path = os.path.join(pkg, "log", "pid_log.csv")
+        
+        self.log_f = open("/tmp/pid_log.csv", "w")
+        self.log_f.write("t,y_r,w,w_pp,w_pid,P,I,D\n")
+        self.t0 = self.get_clock().now()
 
     def load_json(self, path):
         with open(path, "r") as f:
@@ -126,8 +202,25 @@ class P11Follower(Node):
 
         i = self.nearest_index(x, y)   # unwrapped
 
+        # ===== Lap timing =====
+        now_time = self.get_clock().now()
+
+        # 주행 시작 시점 기록
+        if self.start_time is None:
+            self.start_time = now_time
+            self.prev_lap = i // self.N
+        else:
+            current_lap = i // self.N
+            if current_lap > self.prev_lap:
+                lap_time = (now_time - self.start_time).nanoseconds * 1e-9
+                self.get_logger().info(
+                    f"[Lap {current_lap}] {lap_time:.2f} s"
+                )
+                self.start_time = now_time
+                self.prev_lap = current_lap
+
         # ✅ lookahead = "next waypoint"
-        tgt = i + 10                    # unwrapped target (always next)
+        tgt = i + 60                    # unwrapped target (always next)
 
         # make sure the target is in front of the car
         for _ in range(10):
@@ -148,15 +241,51 @@ class P11Follower(Node):
             sin_y = math.sin(yaw)
             x_r = cos_y*dx + sin_y*dy
 
+        now = self.get_clock().now()
+        dt = (now - self.t_prev).nanoseconds * 1e-9
+        self.t_prev = now
         # Pure Pursuit: w = v * kappa, kappa = 2*y_r / L^2
         y_r = -sin_y*dx + cos_y*dy
-        L = math.hypot(x_r, y_r)
-        if L < 1e-3:
+        x_r =  cos_y*dx + sin_y*dy
+
+        Ld = math.hypot(x_r, y_r)
+        if Ld < 1e-3:
             self.publish(0.0, 0.0)
             return
+        
+        # ===== Pure Pursuit =====
+        alpha = math.atan2(y_r, x_r)
+        kappa = 2.0 * math.sin(alpha) / Ld
 
-        kappa = 2.0 * y_r / (L * L)
-        w = self.v_ref * kappa
+        L_wb = 0.30   # wheelbase [m]
+        delta_ff = math.atan(L_wb * kappa)
+
+        # ===== PID feedback (steering angle) =====
+        delta_fb = self.pid.update(y_r, dt)
+
+        # ===== Steering angle synthesis =====
+        delta = delta_ff + delta_fb
+
+        # ===== Saturation (조향각 제한) =====
+        delta_max = math.radians(30.0)
+        delta = max(-delta_max, min(delta_max, delta))
+
+        # ===== Steering → yaw rate =====
+        w = self.v_ref / L_wb * math.tan(delta)
+
+        # PID csv params
+        t = (now_time - self.t0).nanoseconds * 1e-9
+        w_pp = self.v_ref / L_wb * math.tan(delta_ff)
+        w_pid = self.v_ref / L_wb * math.tan(delta_fb)
+        e = y_r
+
+        P = self.pid.Kp * e
+        I = self.pid.Ki * self.e_int
+        D = self.pid.Kd * ((e - self.pid.e_prev) / dt if dt > 0 else 0.0)
+
+        self.log_f.write(
+            f"{t},{y_r},{w},{w_pp},{w_pid},{P},{I},{D}\n"
+        )
 
         self.publish(self.v_ref, w)
 
