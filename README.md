@@ -117,10 +117,10 @@ ros2 run domain_bridge domain_bridge "$CFG"
 ```bash
 export ROS_DOMAIN_ID=1
 
-ros2 run smyd p1_2_follower_cav1 --ros-args \
+ros2 run smyd p1_2_cav1 --ros-args \
   -p waypoints_json:=$(ros2 pkg prefix smyd)/share/smyd/waypoints/path_p1_2_cav1.json \
   -p conflict_map_json:=$(ros2 pkg prefix smyd)/share/smyd/tools/zone_database.json \
-  -p v_ref:=0.6 \
+  -p v_ref:=2.0 \
   -p w_max:=5.0 \
   -p my_share_topic:=/cav1/v2v_state \
   -p peer_share_topic:=/peer/cav2/v2v_state
@@ -131,10 +131,10 @@ ros2 run smyd p1_2_follower_cav1 --ros-args \
 ```bash
 export ROS_DOMAIN_ID=2
 
-ros2 run smyd p1_2_follower_cav2 --ros-args \
+ros2 run smyd p1_2_cav2 --ros-args \
   -p waypoints_json:=$(ros2 pkg prefix smyd)/share/smyd/waypoints/path_p1_2_cav2.json \
   -p conflict_map_json:=$(ros2 pkg prefix smyd)/share/smyd/tools/zone_database.json \
-  -p v_ref:=0.6 \
+  -p v_ref:=2.0 \
   -p w_max:=5.0 \
   -p my_share_topic:=/cav2/v2v_state \
   -p peer_share_topic:=/peer/cav1/v2v_state
