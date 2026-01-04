@@ -50,6 +50,19 @@ colcon build --symlink-install
 source ~/Mobility_Challenge_Simulator/install/setup.bash
 ```
 
+### 1-3. zone_generator.py로 zone_database.json 만들기
+```bash
+WP1="$(ros2 pkg prefix smyd)/share/smyd/waypoints/path_p1_2_cav1.json"
+WP2="$(ros2 pkg prefix smyd)/share/smyd/waypoints/path_p1_2_cav2.json"
+
+ros2 run smyd zone_generator -- \
+  --path1 "$WP1" \
+  --path2 "$WP2" \
+  --out zone_database.json \
+  --dist 0.05 \
+  --monitor_back 100
+```
+
 ---
 
 ## 2) 도메인 구성(현재 운용)
