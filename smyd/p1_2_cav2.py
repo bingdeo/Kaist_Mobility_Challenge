@@ -6,7 +6,7 @@ from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from geometry_msgs.msg import PoseStamped, Accel, AccelStamped
 from ament_index_python.packages import get_package_share_directory
-from smyd.collision_avoidance import CollisionAvoidance
+from smyd.Collision_Avoidance import CollisionAvoidance
 import os
 import numpy as np
 
