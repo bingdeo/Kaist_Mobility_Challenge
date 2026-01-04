@@ -1,4 +1,5 @@
 from setuptools import setup
+from glob import glob
 
 package_name = 'smyd'
 
@@ -11,11 +12,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/config', ['config/v2v_bridge.yaml']),
-        ('share/' + package_name + '/waypoints', [
-            'waypoints/path_p1_2_cav1.json',
-            'waypoints/path_p1_2_cav2.json',
-            '../../tool/conflict_zones.json'
-            ]),
+        ('share/' + package_name + '/waypoints', glob('waypoints/*.json')),
         ('share/' + package_name + '/tools', [
             'smyd/tools/zone_database.json'
             ]),
