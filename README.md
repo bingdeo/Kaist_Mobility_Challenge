@@ -4,8 +4,8 @@
 - 각 CAV는 **자기 경로 follower**로 주행한다.
 - 각 CAV는 **zone_id / in_danger / eta**를 계산해서 **V2V 토픽으로 publish**합니다.
 - Domain Bridge로 서로의 V2V 토픽이 **/peer/...**로 전달되는지 확인 가능합니다.
-- monitoring zone을 총 7구간으로 나누어서 차량끼리 충돌 여부를 판단 가능합니다.
-- **감속(yield) 로직은 아직 미구현**입니다. (V2V 통신 + zone/ETA 산출 검증 단계)
+- conflict zone을 총 7구간으로 나누어서 차량끼리 충돌 여부를 판단 가능합니다.
+- 충돌 회피 알고리즘은 구현 중입니다. (V2V 통신 + zone/ETA 산출 검증 단계) 
 
 ---
 
@@ -165,6 +165,12 @@ ros2 topic echo /peer/cav1/v2v_state
   * zone 밖이면 `1e9` (의미 없음)
 * `header.stamp`    → 송신 시각
 
+* `accel.angular.x`  → **lap count**
+ 
+* `accel.angular.y`  → **x_pose**
+
+* `accel.angular.z`  → **y_pose**
+
 > 참고: `accel.linear.x` 같은 “필드 이름”은 메시지 정의(`AccelStamped`)가 고정이라 바꿀 수 없습니다.
 > 헷갈림을 줄이려면 추후 `smyd_msgs/msg/V2VState` 같은 커스텀 msg로 교체 가능합니다.
 
@@ -200,13 +206,13 @@ ros2 topic echo /Accel
 * conflict_map 기반 zone 판별(기본)
 * zone_id / in_danger / eta V2V publish
 * bridge를 통해 `/peer/...`로 수신 확인 가능
+* 같은 zone_id에서 ETA 비교로 양보 차량 결정
+* tie-break (예: cav1 우선)
 
 ### 미구현(해야 할 것)
 
 * **감속(yield) 결정 로직**
 
-  * 같은 zone_id에서 ETA 비교로 양보 차량 결정
-  * tie-break (예: cav1 우선)
   * fail-safe (peer timeout 시 안전하게 기본 동작)
 * 실제 감속 제어
 
