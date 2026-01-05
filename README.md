@@ -83,6 +83,8 @@ ros2 run smyd zone_generator -- \
 > 팀에서 쓰는 simulator launch 파일로 실행합니다. 아래는 “도메인만 100으로 두고 launch한다”는 원칙 예시입니다.
 
 ```bash
+cd ~/Mobility_Challenge_Simulator
+colcon build --symlink-install
 export ROS_DOMAIN_ID=100
 ros2 launch simulator_launch simulator_launch.py
 ```
@@ -92,6 +94,8 @@ ros2 launch simulator_launch simulator_launch.py
 ## 4) Domain Bridge 실행 (Domain 99)
 
 ```bash
+cd ~/Mobility_Challenge_Simulator
+colcon build --symlink-install
 export ROS_DOMAIN_ID=99
 CFG="$(ros2 pkg prefix smyd)/share/smyd/config/v2v_bridge.yaml"
 ros2 run domain_bridge domain_bridge "$CFG"
@@ -115,29 +119,25 @@ ros2 run domain_bridge domain_bridge "$CFG"
 ### 5-1) CAV1 실행 (Domain 1)
 
 ```bash
+cd ~/Mobility_Challenge_Simulator
+colcon build --symlink-install
+SHARE="$(python3 -c 'from ament_index_python.packages import get_package_share_directory as g; print(g("smyd"))')"
+WP1="$SHARE/waypoints/path_p1_2_cav1.json"
+CM="$SHARE/tools/zone_database.json" 
 export ROS_DOMAIN_ID=1
-
-ros2 run smyd p1_2_cav1 --ros-args \
-  -p waypoints_json:=$(ros2 pkg prefix smyd)/share/smyd/waypoints/path_p1_2_cav1.json \
-  -p conflict_map_json:=$(ros2 pkg prefix smyd)/share/smyd/tools/zone_database.json \
-  -p v_ref:=2.0 \
-  -p w_max:=5.0 \
-  -p my_share_topic:=/cav1/v2v_state \
-  -p peer_share_topic:=/peer/cav2/v2v_state
+ros2 run smyd p1_2_cav1 --ros-args -p waypoints_json:="$WP1" -p conflict_map_json:="$CM"
 ```
 
 ### 5-2) CAV2 실행 (Domain 2)
 
 ```bash
+cd ~/Mobility_Challenge_Simulator
+colcon build --symlink-install
+SHARE="$(python3 -c 'from ament_index_python.packages import get_package_share_directory as g; print(g("smyd"))')"
+WP2="$SHARE/waypoints/path_p1_2_cav2.json"
+CM="$SHARE/tools/zone_database.json" 
 export ROS_DOMAIN_ID=2
-
-ros2 run smyd p1_2_cav2 --ros-args \
-  -p waypoints_json:=$(ros2 pkg prefix smyd)/share/smyd/waypoints/path_p1_2_cav2.json \
-  -p conflict_map_json:=$(ros2 pkg prefix smyd)/share/smyd/tools/zone_database.json \
-  -p v_ref:=2.0 \
-  -p w_max:=5.0 \
-  -p my_share_topic:=/cav2/v2v_state \
-  -p peer_share_topic:=/peer/cav1/v2v_state
+ros2 run smyd p1_2_cav2 --ros-args -p waypoints_json:="$WP2" -p conflict_map_json:="$CM"
 ```
 
 ---
@@ -160,32 +160,19 @@ ros2 topic echo /peer/cav1/v2v_state
 
 ---
 
-## 7) V2V 메시지 필드 의미 (중요)
+## 7) V2V 메시지 필드 의미 (변경됨)
 
-현재 V2V 메시지 타입은 **`geometry_msgs/msg/AccelStamped`**를 “컨테이너”로 재활용합니다.
-그래서 echo 결과에 `accel.linear.x/y/z` 형태로 보이지만, 의미는 아래처럼 **우리가 정한 규약**입니다.
-
-* `accel.linear.x`  → **zone_id**
-
-  * zone에 해당 없으면 `-1`
-* `accel.linear.y`  → **in_danger** (0 또는 1)
-
-  * conflict 구간 내부(점유)면 `1`
-  * monitor 구간이면 `0`
-* `accel.linear.z`  → **eta** (초, s)
-
-  * monitor 구간에서 conflict_start까지 남은 거리/속도로 ETA 계산
-  * zone 밖이면 `1e9` (의미 없음)
-* `header.stamp`    → 송신 시각
-
-* `accel.angular.x`  → **lap count**
- 
-* `accel.angular.y`  → **x_pose**
-
-* `accel.angular.z`  → **y_pose**
-
-> 참고: `accel.linear.x` 같은 “필드 이름”은 메시지 정의(`AccelStamped`)가 고정이라 바꿀 수 없습니다.
-> 헷갈림을 줄이려면 추후 `smyd_msgs/msg/V2VState` 같은 커스텀 msg로 교체 가능합니다.
+현재 V2V 메시지 타입은 **`geometry_msgs/msg/AccelStamped`**를 “컨테이너”로 재활용하던 기존 방식 폐기.
+**`smyd_interfaces/msg/V2VState.msg`**로 변경했습니다.
+```bash
+int32 zone_id   
+bool  in_danger
+float32 eta
+int32 lap
+float32 x
+float32 y
+uint8 flags
+```
 
 ---
 
@@ -206,9 +193,6 @@ export ROS_DOMAIN_ID=1
 ros2 topic echo /Accel
 ```
 
-> 주의: V2V 상태 토픽(`/cav*/v2v_state`, `/peer/.../v2v_state`)과 `/Accel`은 **완전히 별개**입니다.
-> 이름이 Accel/AccelStamped라 비슷해 보일 뿐, 하나는 “제어”, 하나는 “통신 상태”입니다.
-
 ---
 
 ## 9) 지금 구현된 것 vs 미구현(다음 단계)
@@ -221,15 +205,14 @@ ros2 topic echo /Accel
 * bridge를 통해 `/peer/...`로 수신 확인 가능
 * 같은 zone_id에서 ETA 비교로 양보 차량 결정
 * tie-break (예: cav1 우선)
+* `/Accel` publish 시 `v_cmd`를 낮추는 로직 적용
 
 ### 미구현(해야 할 것)
 
 * **감속(yield) 결정 로직**
 
-  * fail-safe (peer timeout 시 안전하게 기본 동작)
-* 실제 감속 제어
+  * flag 처리 로직 구현
 
-  * `/Accel` publish 시 `v_cmd`를 낮추는 로직 적용
 
 ---
 
@@ -240,6 +223,7 @@ ros2 topic echo /Accel
 1. Bridge가 떠있는지 확인 (Domain 99)
 2. `v2v_bridge.yaml`의 토픽/타입 일치 확인
 3. 각 터미널에서 `source ~/Mobility_Challenge_Simulator/install/setup.bash` 했는지 확인
+4. launch 파일은 `~/Mobility_Challenge_Simulator`에 있기 때문에 항상 `cd ~/Mobility_Challenge_Simulator`할 것 
 
 ### 10-2) conflict_map 파일 못 찾음
 
