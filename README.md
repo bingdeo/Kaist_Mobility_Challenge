@@ -206,15 +206,7 @@ ros2 topic echo /Accel
 * 같은 zone_id에서 ETA 비교로 양보 차량 결정
 * tie-break (예: cav1 우선)
 * `/Accel` publish 시 `v_cmd`를 낮추는 로직 적용
-
-### 미구현(해야 할 것)
-
-* **감속(yield) 결정 로직**
-
-  * flag 처리 로직 구현
-
-
----
+* flag 처리 로직 구현
 
 ## 10) 트러블슈팅
 
