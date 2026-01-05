@@ -117,6 +117,15 @@ class P12Follower(Node):
         self.idx_u = 0
         self.allow_back = 0
 
+        #flag
+        self.flag_threshold = 0.05
+        self.my_flag = 0
+
+        if self.is_cav1:
+            self.flag_target = (0.896666666666667, -0.108333333333333)
+        else:
+            self.flag_target = (1.775, -0.77)
+
         # lap timing
         self.start_time = None
         self.prev_lap = 0
@@ -342,6 +351,7 @@ class P12Follower(Node):
         YELLOW = '\033[93m'
         RED = '\033[91m'
         BLUE = '\033[94m'
+        GREEN = '\033[92m'
         RESET = '\033[0m'
         
         # Zone entry (monitoring zone)
@@ -371,6 +381,10 @@ class P12Follower(Node):
             if log_key not in self.zone_log_lap:
                 self.get_logger().info(f"{BLUE}zone_id:{self.prev_zone_id}에서 통과함{RESET}")
                 self.zone_log_lap[log_key] = True
+
+        if self.prev_zone_id == 3 and zone_id != 3:
+            self.my_flag = 0
+            self.get_logger().info(f"{GREEN}Flag 내림")
         
         self.prev_zone_id = zone_id
         self.prev_in_danger = in_danger
@@ -439,6 +453,11 @@ class P12Follower(Node):
         if lap_now != self.lap:
             self.lap = lap_now
             self.get_logger().info(f"Lap = {self.lap}")
+        
+        # flag logic
+        dist_to_flag = math.sqrt((x - self.flag_target[0])**2 + (y - self.flag_target[1])**2)
+        if dist_to_flag < self.flag_threshold:
+            self.my_flag = 1
 
         # publish my V2V state (zone_id, in_danger, eta)
         # compute_zone_state는 in_conflict 반환 (conflict zone 내부 여부)
@@ -450,10 +469,8 @@ class P12Follower(Node):
             p_zone = int(self.peer_state.get("zone", -1))
             if p_zone == zone_id:
                 in_danger = 1
-
-        my_flag = 0  # 필요시 플래그 설정 (0~255)
         
-        self.publish_v2v(zone_id, in_danger, eta, self.lap, x, y, my_flag)
+        self.publish_v2v(zone_id, in_danger, eta, self.lap, x, y, self.my_flag)
         
         # Log zone status
         self.log_zone_status(zone_id, in_danger, in_conflict, self.lap)
@@ -467,7 +484,8 @@ class P12Follower(Node):
             peer_lap = int(self.peer_state.get("lap", 0))
             peer_x = float(self.peer_state.get("x", 0.0))
             peer_y = float(self.peer_state.get("y", 0.0))
-            v_cmd = self.ca.avoid_collision(zone_id, v_cmd, eta, peer_eta, self.lap, peer_lap, x, y, peer_x, peer_y, self.is_cav1)
+            peer_flag = int(self.peer_state.get("flag", 0))
+            v_cmd = self.ca.avoid_collision(zone_id, v_cmd, eta, peer_eta, self.lap, peer_lap, x, y, peer_x, peer_y, self.is_cav1, self.my_flag, peer_flag)
         else:
             v_cmd = self.priority_speed(v_cmd, zone_id, in_danger, eta, self.lap)
 
