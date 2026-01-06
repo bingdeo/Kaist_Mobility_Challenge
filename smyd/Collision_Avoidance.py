@@ -31,15 +31,15 @@ class CollisionAvoidance:
             
         # Zone-specific algorithms
         if zone_id == 1:
-            return self._zone_1_avoidance(v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1, my_flag, peer_flag)
+            return self._zone_1_avoidance(v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1)
         elif zone_id == 2:
             return self._zone_2_avoidance(v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1, my_flag, peer_flag)
         elif zone_id == 3:
             return self._zone_3_avoidance(v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1, my_flag, peer_flag)
         elif zone_id == 4:
-            return self._zone_4_avoidance(v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1, my_flag, peer_flag)
+            return self._zone_4_avoidance(v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1)
         elif zone_id == 5:
-            return self._zone_5_avoidance(v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1, my_flag, peer_flag)
+            return self._zone_5_avoidance(v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1)
         elif zone_id == 6:
             return self._zone_6_avoidance(v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1, my_flag, peer_flag)
         elif zone_id == 7:
@@ -61,11 +61,11 @@ class CollisionAvoidance:
                 return max(self.node.v_min, v_cmd * self.node.yield_ratio)
         return v_cmd
     
-    def _zone_1_avoidance(self, v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1, my_flag, peer_flag):
+    def _zone_1_avoidance(self, v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1):
         """Zone 1,2,6,7: 충돌지점 알고리즘
-        1. Diff >= 3초: 둘 다 속도 유지
-        2. 1초 <= Diff < 3초: ETA 작은 차량 우선
-        3. Diff < 1.0 : lap count 및 DOMAiN_ID로 판단
+        1. Diff >= 4초: 둘 다 속도 유지
+        2. 2초 <= Diff < 4초: ETA 작은 차량 우선
+        3. Diff < 2.0 : lap count 및 DOMAiN_ID로 판단
         """
         eta_diff = abs(my_eta - peer_eta)
         
@@ -77,15 +77,15 @@ class CollisionAvoidance:
             if my_eta < peer_eta:
                 return v_cmd
             elif my_eta > peer_eta:
-                return max(self.node.v_min, v_cmd * 0.6)
+                return max(self.node.v_min, v_cmd * 0.4)
         else:
             if my_lap == peer_lap:  # 같은 lap -> ETA 기준
                 if is_cav1:  # CAV1이 우선 차량 
                     return v_cmd
                 else:
-                    return max(self.node.v_min, v_cmd * 0.6)
+                    return max(self.node.v_min, v_cmd * 0.4)
             elif my_lap > peer_lap: # 내가 후순 차량 -> 40% 감속
-                return max(self.node.v_min, v_cmd * 0.6)
+                return max(self.node.v_min, v_cmd * 0.4)
             else: # 내가 우선 차량 -> 속도 유지
                 return v_cmd
         
@@ -95,10 +95,13 @@ class CollisionAvoidance:
         return self._zone_1_avoidance(v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1)
     
     def _zone_3_avoidance(self, v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1, my_flag, peer_flag):
-        """Zone 3: 회전교차로 알고리즘
-        1. ETA >= 5초: 둘 다 속도 유지
-        2. ETA < 5초: CAV1 우선, CAV2가 40% 감속
-        3. ETA < 1초: lap count 작은 차량 우선, 다른 차량 70% 감속
+        """
+        Zone 3: 회전교차로 알고리즘
+        1. ETA 차이가 4초 이상이면 둘 다 속도 유지
+        2. ETA <3초 flag(회전교차로 내 우선권) 우선순위 적용
+        3. 내가 flag=1, 상대가 flag=0: 내 속도 유지(내가 우선)
+        4. 내가 flag=0, 상대가 flag=1: 20% 속도로 감속(상대가 우선)
+        5. 둘 다 flag=1: CAV1이 감속(40%), CAV2는 속도 유지(동시 진입시 CAV2 우선)
         """
         eta_diff = abs(my_eta - peer_eta)
         
@@ -117,7 +120,7 @@ class CollisionAvoidance:
                 else:
                     return max(self.node.v_min, v_cmd * 0.6)
     
-    def _zone_4_avoidance(self, v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1, my_flag, peer_flag):
+    def _zone_4_avoidance(self, v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1):
         """
         Zone 4: 합류구간 알고리즘
         1. 거리 >= 1.5m: 원래 속도
@@ -158,7 +161,7 @@ class CollisionAvoidance:
                 else:
                     return v_cmd
 
-    def _zone_5_avoidance(self, v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1, my_flag, peer_flag):
+    def _zone_5_avoidance(self, v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1):
         """Zone 5: MERGE_POINT"""
         return self._zone_4_avoidance(v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1)
     
