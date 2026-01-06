@@ -85,6 +85,8 @@ ros2 run smyd zone_generator -- \
 ```bash
 cd ~/Mobility_Challenge_Simulator
 colcon build --symlink-install
+source ~/Mobility_Challenge_Simulator/install/setup.bash
+
 export ROS_DOMAIN_ID=100
 ros2 launch simulator_launch simulator_launch.py
 ```
@@ -96,6 +98,8 @@ ros2 launch simulator_launch simulator_launch.py
 ```bash
 cd ~/Mobility_Challenge_Simulator
 colcon build --symlink-install
+source ~/Mobility_Challenge_Simulator/install/setup.bash
+
 export ROS_DOMAIN_ID=99
 CFG="$(ros2 pkg prefix smyd)/share/smyd/config/v2v_bridge.yaml"
 ros2 run domain_bridge domain_bridge "$CFG"
@@ -121,6 +125,8 @@ ros2 run domain_bridge domain_bridge "$CFG"
 ```bash
 cd ~/Mobility_Challenge_Simulator
 colcon build --symlink-install
+source ~/Mobility_Challenge_Simulator/install/setup.bash
+
 SHARE="$(python3 -c 'from ament_index_python.packages import get_package_share_directory as g; print(g("smyd"))')"
 WP1="$SHARE/waypoints/path_p1_2_cav1.json"
 CM="$SHARE/tools/zone_database.json" 
@@ -133,6 +139,8 @@ ros2 run smyd p1_2_cav1 --ros-args -p waypoints_json:="$WP1" -p conflict_map_jso
 ```bash
 cd ~/Mobility_Challenge_Simulator
 colcon build --symlink-install
+source ~/Mobility_Challenge_Simulator/install/setup.bash
+
 SHARE="$(python3 -c 'from ament_index_python.packages import get_package_share_directory as g; print(g("smyd"))')"
 WP2="$SHARE/waypoints/path_p1_2_cav2.json"
 CM="$SHARE/tools/zone_database.json" 
@@ -147,6 +155,7 @@ ros2 run smyd p1_2_cav2 --ros-args -p waypoints_json:="$WP2" -p conflict_map_jso
 ### 6-1) Domain 1에서 CAV2 peer 상태 확인
 
 ```bash
+source ~/Mobility_Challenge_Simulator/install/setup.bash
 export ROS_DOMAIN_ID=1
 ros2 topic echo /peer/cav2/v2v_state
 ```
@@ -154,6 +163,7 @@ ros2 topic echo /peer/cav2/v2v_state
 ### 6-2) Domain 2에서 CAV1 peer 상태 확인
 
 ```bash
+source ~/Mobility_Challenge_Simulator/install/setup.bash
 export ROS_DOMAIN_ID=2
 ros2 topic echo /peer/cav1/v2v_state
 ```
