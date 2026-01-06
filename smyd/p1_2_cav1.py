@@ -146,6 +146,7 @@ class P12Follower(Node):
         self.log_f = open("/tmp/pid_log_p1_2_cav1.csv", "w")
         self.log_f.write("t,y_r,w,w_pp,w_pid,P,I,D\n")
         self.t0 = self.get_clock().now()
+        self.t_prev = self.get_clock().now()
 
         # control I/O (simulator interface)
         self.sub = self.create_subscription(PoseStamped, "/Ego_pose", self.cb, qos_profile_sensor_data)

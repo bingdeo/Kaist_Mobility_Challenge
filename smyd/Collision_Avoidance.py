@@ -88,7 +88,7 @@ class CollisionAvoidance:
     def _zone_2_avoidance(self, v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1):
         """Zone 2: CROSS_POINT"""
         return self._zone_1_avoidance(v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1)
-    
+
     def _zone_3_avoidance(self, v_cmd, my_eta, peer_eta, my_lap, peer_lap, my_x, my_y, peer_x, peer_y, is_cav1):
         """Zone 3: 회전교차로 알고리즘
         1. ETA >= 5초: 둘 다 속도 유지
