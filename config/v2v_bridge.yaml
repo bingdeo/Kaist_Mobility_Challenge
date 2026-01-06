@@ -1,13 +1,13 @@
 name: smyd_v2v_bridge
 topics:
   /cav1/v2v_state:
-    type: geometry_msgs/msg/AccelStamped
+    type: smyd_interfaces/msg/V2VState
     from_domain: 1
     to_domain: 2
     remap: /peer/cav1/v2v_state
 
   /cav2/v2v_state:
-    type: geometry_msgs/msg/AccelStamped
+    type: smyd_interfaces/msg/V2VState
     from_domain: 2
     to_domain: 1
     remap: /peer/cav2/v2v_state

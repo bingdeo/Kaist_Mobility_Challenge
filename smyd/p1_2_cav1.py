@@ -4,7 +4,9 @@ import json
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
-from geometry_msgs.msg import PoseStamped, Accel, AccelStamped
+from geometry_msgs.msg import PoseStamped, Accel
+from smyd_interfaces.msg import V2VState
+# from geometry_msgs.msg import AccelStamped  # 제거
 from ament_index_python.packages import get_package_share_directory
 from smyd.Collision_Avoidance import CollisionAvoidance
 import os
@@ -115,6 +117,15 @@ class P12Follower(Node):
         self.idx_u = 0
         self.allow_back = 0
 
+        #flag
+        self.flag_threshold = 0.05
+        self.my_flag = 0
+
+        if self.is_cav1:
+            self.flag_target = (0.896666666666667, -0.108333333333333)
+        else:
+            self.flag_target = (1.775, -0.77)
+
         # lap timing
         self.start_time = None
         self.prev_lap = 0
@@ -155,8 +166,8 @@ class P12Follower(Node):
         # V2V state pub/sub
         my_topic = self.get_parameter("my_share_topic").value
         peer_topic = self.get_parameter("peer_share_topic").value
-        self.share_pub = self.create_publisher(AccelStamped, my_topic, qos_profile_sensor_data)
-        self.peer_sub = self.create_subscription(AccelStamped, peer_topic, self.cb_peer, qos_profile_sensor_data)
+        self.share_pub = self.create_publisher(V2VState, my_topic, qos_profile_sensor_data)
+        self.peer_sub = self.create_subscription(V2VState, peer_topic, self.cb_peer, qos_profile_sensor_data)
         self.peer_state = None
 
         # load conflict map (cav1 = path1)
@@ -180,6 +191,8 @@ class P12Follower(Node):
         self.prev_in_danger = 0
         self.prev_in_conflict = False
         self.zone_log_lap = {}  # Track which lap we logged for each zone
+        self.t_prev = self.get_clock().now()
+
 
     def load_json(self, path):
         with open(path, "r") as f:
@@ -259,15 +272,15 @@ class P12Follower(Node):
         self.pub.publish(msg)
 
     # ---------- V2V ----------
-    def cb_peer(self, msg: AccelStamped):
-        a = msg.accel
+    def cb_peer(self, msg: V2VState):
         self.peer_state = {
-            "zone": int(round(a.linear.x)),
-            "in_danger": int(round(a.linear.y)),  # 0/1
-            "eta": float(a.linear.z),
-            "lap": int(round(a.angular.x)),
-            "x": float(a.angular.y),  # x 좌표
-            "y": float(a.angular.z),  # y 좌표
+            "zone": int(msg.zone_id),
+            "in_danger": int(msg.in_danger),   # bool -> 0/1
+            "eta": float(msg.eta),
+            "lap": int(msg.lap),
+            "x": float(msg.x),
+            "y": float(msg.y),
+            "flag": int(msg.flag),
             "t": msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9,
         }
 
@@ -277,16 +290,18 @@ class P12Follower(Node):
         now = self.get_clock().now().nanoseconds * 1e-9
         return (now - self.peer_state["t"]) < self.peer_timeout
 
-    def publish_v2v(self, zone_id, in_danger, eta, lap, x, y):
-        m = AccelStamped()
+    def publish_v2v(self, zone_id, in_danger, eta, lap, x, y, flag):
+        m = V2VState()
         m.header.stamp = self.get_clock().now().to_msg()
-        m.accel.linear.x = float(zone_id)
-        m.accel.linear.y = float(in_danger)  # 0/1
-        m.accel.linear.z = float(eta)
-        m.accel.angular.x = float(lap)       # lap 공유
-        m.accel.angular.y = float(x)         # x 좌표
-        m.accel.angular.z = float(y)         # y 좌표
+        m.zone_id = int(zone_id)
+        m.in_danger = bool(in_danger)
+        m.eta = float(eta)
+        m.lap = int(lap)
+        m.x = float(x)
+        m.y = float(y)
+        m.flag = int(flag)  # 0~255
         self.share_pub.publish(m)
+
 
     # ---------- zone logic ----------
     def _in_range(self, idx, a, b):
@@ -337,6 +352,7 @@ class P12Follower(Node):
         YELLOW = '\033[93m'
         RED = '\033[91m'
         BLUE = '\033[94m'
+        GREEN = '\033[92m'
         RESET = '\033[0m'
         
         # Zone entry (monitoring zone)
@@ -366,6 +382,10 @@ class P12Follower(Node):
             if log_key not in self.zone_log_lap:
                 self.get_logger().info(f"{BLUE}zone_id:{self.prev_zone_id}에서 통과함{RESET}")
                 self.zone_log_lap[log_key] = True
+
+        if self.prev_zone_id == 3 and zone_id != 3:
+            self.my_flag = 0
+            self.get_logger().info(f"{GREEN}Flag 내림")
         
         self.prev_zone_id = zone_id
         self.prev_in_danger = in_danger
@@ -434,6 +454,11 @@ class P12Follower(Node):
         if lap_now != self.lap:
             self.lap = lap_now
             self.get_logger().info(f"Lap = {self.lap}")
+        
+        # flag logic
+        dist_to_flag = math.sqrt((x - self.flag_target[0])**2 + (y - self.flag_target[1])**2)
+        if dist_to_flag < self.flag_threshold:
+            self.my_flag = 1
 
         # publish my V2V state (zone_id, in_danger, eta)
         # compute_zone_state는 in_conflict 반환 (conflict zone 내부 여부)
@@ -446,7 +471,7 @@ class P12Follower(Node):
             if p_zone == zone_id:
                 in_danger = 1
         
-        self.publish_v2v(zone_id, in_danger, eta, self.lap, x, y)
+        self.publish_v2v(zone_id, in_danger, eta, self.lap, x, y, self.my_flag)
         
         # Log zone status
         self.log_zone_status(zone_id, in_danger, in_conflict, self.lap)
@@ -460,7 +485,8 @@ class P12Follower(Node):
             peer_lap = int(self.peer_state.get("lap", 0))
             peer_x = float(self.peer_state.get("x", 0.0))
             peer_y = float(self.peer_state.get("y", 0.0))
-            v_cmd = self.ca.avoid_collision(zone_id, v_cmd, eta, peer_eta, self.lap, peer_lap, x, y, peer_x, peer_y, self.is_cav1)
+            peer_flag = int(self.peer_state.get("flag", 0))
+            v_cmd = self.ca.avoid_collision(zone_id, v_cmd, eta, peer_eta, self.lap, peer_lap, x, y, peer_x, peer_y, self.is_cav1, self.my_flag, peer_flag)
         else:
             v_cmd = self.priority_speed(v_cmd, zone_id, in_danger, eta, self.lap)
 
@@ -515,23 +541,24 @@ class P12Follower(Node):
         delta = max(-delta_max, min(delta_max, delta))
 
         # ===== Steering → yaw rate =====
-        w = self.v_ref / L_wb * math.tan(delta)
+        w = v_cmd / L_wb * math.tan(delta)
 
         # PID csv params
         t = (now_time - self.t0).nanoseconds * 1e-9
-        w_pp = self.v_ref / L_wb * math.tan(delta_ff)
-        w_pid = self.v_ref / L_wb * math.tan(delta_fb)
+        w_pp = v_cmd / L_wb * math.tan(delta_ff)
+        w_pid = v_cmd / L_wb * math.tan(delta_fb)
         e = y_r
 
         P = self.pid.Kp * e
-        I = self.pid.Ki * self.e_int
+        I = self.pid.Ki * self.pid.e_int
         D = self.pid.Kd * ((e - self.pid.e_prev) / dt if dt > 0 else 0.0)
+
 
         self.log_f.write(
             f"{t},{y_r},{w},{w_pp},{w_pid},{P},{I},{D}\n"
         )
 
-        self.publish(self.v_ref, w)
+        self.publish(v_cmd, w)
 
 
 def main():
