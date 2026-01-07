@@ -3,7 +3,7 @@
     "path1": "/home/hyunseo/Mobility_Challenge_Simulator/install/smyd/share/smyd/waypoints/path_p1_2_cav1.json",
     "path2": "/home/hyunseo/Mobility_Challenge_Simulator/install/smyd/share/smyd/waypoints/path_p1_2_cav2.json",
     "dist_threshold_m": 0.05,
-    "monitor_back_points": 120,
+    "monitor_back_points": 150,
     "min_segment_len": 3,
     "max_gap": 5
   },
@@ -12,12 +12,12 @@
       "zone_id": 1,
       "kind": "CROSS_POINT",
       "path1": {
-        "monitor_start_idx": 209,
+        "monitor_start_idx": 179,
         "conflict_start_idx": 329,
         "conflict_end_idx": null,
         "monitor_start_xy": [
-          -2.44166666666667,
-          1.57
+          -2.458620598876,
+          1.86993242281312
         ],
         "conflict_start_xy": [
           -2.33506242409545,
@@ -29,12 +29,12 @@
         ]
       },
       "path2": {
-        "monitor_start_idx": 51,
+        "monitor_start_idx": 21,
         "conflict_start_idx": 171,
         "conflict_end_idx": null,
         "monitor_start_xy": [
-          -3.35666666666667,
-          -0.108333333333333
+          -3.6550000095367476,
+          -0.10833333432674408
         ],
         "conflict_start_xy": [
           -2.3362820487258,
@@ -53,12 +53,12 @@
       "zone_id": 2,
       "kind": "CROSS_POINT",
       "path1": {
-        "monitor_start_idx": 264,
+        "monitor_start_idx": 234,
         "conflict_start_idx": 384,
         "conflict_end_idx": null,
         "monitor_start_xy": [
           -2.44166666666667,
-          1.02333333333333
+          1.32
         ],
         "conflict_start_xy": [
           -1.95583809130467,
@@ -70,11 +70,11 @@
         ]
       },
       "path2": {
-        "monitor_start_idx": 2589,
+        "monitor_start_idx": 2559,
         "conflict_start_idx": 2709,
         "conflict_end_idx": null,
         "monitor_start_xy": [
-          -0.760866666666667,
+          -0.460866666666667,
           0.108333333333333
         ],
         "conflict_start_xy": [
@@ -94,12 +94,12 @@
       "zone_id": 3,
       "kind": "OVERLAP_SEGMENT",
       "path1": {
-        "monitor_start_idx": 675,
+        "monitor_start_idx": 645,
         "conflict_start_idx": 795,
         "conflict_end_idx": 1018,
         "monitor_start_xy": [
-          0.904114712597017,
-          -0.138345644472673
+          0.626666666666667,
+          -0.108333333333333
         ],
         "conflict_start_xy": [
           1.77606269521888,
@@ -111,12 +111,12 @@
         ]
       },
       "path2": {
-        "monitor_start_idx": 1957,
+        "monitor_start_idx": 1927,
         "conflict_start_idx": 2077,
         "conflict_end_idx": 2300,
         "monitor_start_xy": [
-          1.78374207083909,
-          -1.95879368291273
+          1.88919429152209,
+          -2.2350490864755
         ],
         "conflict_start_xy": [
           1.775,
@@ -135,12 +135,12 @@
       "zone_id": 4,
       "kind": "OVERLAP_SEGMENT",
       "path1": {
-        "monitor_start_idx": 1101,
+        "monitor_start_idx": 1071,
         "conflict_start_idx": 1221,
         "conflict_end_idx": 1323,
         "monitor_start_xy": [
           1.775,
-          1.59
+          1.29753333333333
         ],
         "conflict_start_xy": [
           2.30649158679094,
@@ -152,11 +152,11 @@
         ]
       },
       "path2": {
-        "monitor_start_idx": 691,
+        "monitor_start_idx": 661,
         "conflict_start_idx": 811,
         "conflict_end_idx": 913,
         "monitor_start_xy": [
-          1.10166666666667,
+          0.801666666666667,
           2.55
         ],
         "conflict_start_xy": [
@@ -176,12 +176,12 @@
       "zone_id": 5,
       "kind": "OVERLAP_SEGMENT",
       "path1": {
-        "monitor_start_idx": 1589,
+        "monitor_start_idx": 1559,
         "conflict_start_idx": 1709,
         "conflict_end_idx": 2080,
         "monitor_start_xy": [
           5.05833333333333,
-          1.19
+          1.49
         ],
         "conflict_start_xy": [
           5.29358603919756,
@@ -193,12 +193,12 @@
         ]
       },
       "path2": {
-        "monitor_start_idx": 1212,
+        "monitor_start_idx": 1182,
         "conflict_start_idx": 1332,
         "conflict_end_idx": 1702,
         "monitor_start_xy": [
           5.30833333333333,
-          1.24
+          1.54
         ],
         "conflict_start_xy": [
           5.30833333333333,
@@ -217,12 +217,12 @@
       "zone_id": 6,
       "kind": "CROSS_POINT",
       "path1": {
-        "monitor_start_idx": 2770,
+        "monitor_start_idx": 2740,
         "conflict_start_idx": 2890,
         "conflict_end_idx": null,
         "monitor_start_xy": [
-          -2.225,
-          -1.57
+          -2.20804606779066,
+          -1.86993242281312
         ],
         "conflict_start_xy": [
           -2.33160424257122,
@@ -234,11 +234,11 @@
         ]
       },
       "path2": {
-        "monitor_start_idx": 2644,
+        "monitor_start_idx": 2614,
         "conflict_start_idx": 2764,
         "conflict_end_idx": null,
         "monitor_start_xy": [
-          -1.31,
+          -1.01086666666667,
           0.108333333333333
         ],
         "conflict_start_xy": [
@@ -258,12 +258,12 @@
       "zone_id": 7,
       "kind": "CROSS_POINT",
       "path1": {
-        "monitor_start_idx": 2825,
+        "monitor_start_idx": 2795,
         "conflict_start_idx": 2945,
         "conflict_end_idx": null,
         "monitor_start_xy": [
           -2.225,
-          -1.02333333333333
+          -1.32
         ],
         "conflict_start_xy": [
           -2.710828575362,
