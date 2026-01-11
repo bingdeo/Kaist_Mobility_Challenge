@@ -48,7 +48,7 @@ class SteeringPID:
         self.e_int = max(-self.i_limit, min(self.i_limit, self.e_int))
 
         # Derivative
-        de = (e - self.e_prev) / dt
+        de = (e - self.e_prev) / dt 
         self.e_prev = e
 
         # PID output (steering angle [rad])
@@ -64,7 +64,7 @@ class P12Follower(Node):
         super().__init__("p1_2_cav1")
 
         self.declare_parameter("waypoints_json", "")
-        self.declare_parameter("v_ref", 2.0)
+        self.declare_parameter("v_ref", 1.6)
         self.declare_parameter("w_max", 5.0)
 
         # V2V (state only)
@@ -118,7 +118,7 @@ class P12Follower(Node):
         self.allow_back = 0
 
         #flag
-        self.flag_threshold = 0.05
+        self.flag_threshold = 0.2
         self.my_flag = 0
 
         if self.is_cav1:
@@ -157,7 +157,6 @@ class P12Follower(Node):
         self.log_f = open("/tmp/pid_log_p1_2_cav1.csv", "w")
         self.log_f.write("t,y_r,w,w_pp,w_pid,P,I,D\n")
         self.t0 = self.get_clock().now()
-        self.t_prev = self.get_clock().now()
 
         # control I/O (simulator interface)
         self.sub = self.create_subscription(PoseStamped, "/Ego_pose", self.cb, qos_profile_sensor_data)
@@ -402,6 +401,10 @@ class P12Follower(Node):
         p_eta = float(self.peer_state["eta"])
         p_lap = int(self.peer_state.get("lap", -999))
 
+        # zone 1,2,6,7 지점 미리 감속
+        #if (pz in [2,7] and my_zone in [6]) or (my_zone in [1] and pz in [2, 7]):
+        #    return max(self.v_min, v_cmd)
+
         # 같은 zone + 같은 lap일 때만 비교(랩 반복으로 잘못 양보 방지)
         if pz != my_zone or p_lap != my_lap:
             return v_cmd
@@ -428,6 +431,7 @@ class P12Follower(Node):
         x = float(msg.pose.position.x)
         y = float(msg.pose.position.y)
         yaw = yaw_from_pose(msg)
+        GREEN = '\033[92m'
 
         i = self.nearest_index(x, y)
         idx_mod = i % self.N
@@ -454,21 +458,38 @@ class P12Follower(Node):
         if lap_now != self.lap:
             self.lap = lap_now
             self.get_logger().info(f"Lap = {self.lap}")
-        
+
         # flag logic
         dist_to_flag = math.sqrt((x - self.flag_target[0])**2 + (y - self.flag_target[1])**2)
         if dist_to_flag < self.flag_threshold:
             self.my_flag = 1
+            self.get_logger().info(f"{GREEN}Flag 올림")
 
         # publish my V2V state (zone_id, in_danger, eta)
         # compute_zone_state는 in_conflict 반환 (conflict zone 내부 여부)
         zone_id, in_conflict, eta = self.compute_zone_state(idx_mod, self.v_ref)
+        swapped = False #Zone의 변경 체크
+        #CAV1 입장에서 내가 1번 Zone에 있을 때 CAV2가 2번 zone으로 들어오면 1->2로 바꿈.
+        #CAV1 입장에서 내가 6번 Zone에 있을 때 CAV2가 7번 Zone으로 들어오면 6->7로 바꿈.
+        if zone_id == 1 and self.peer_is_fresh() and self.peer_state:
+            p_zone = int(self.peer_state.get("zone", -1))
+            if p_zone == 2:
+                zone_id = 2
+                swapped = True
+        
+        if zone_id == 6 and self.peer_is_fresh() and self.peer_state:
+            p_zone = int(self.peer_state.get("zone", -1))
+            if p_zone == 7:
+                zone_id = 7
+                swapped = True
         
         # in_danger는 peer와 같은 zone에 있을 때만 1
         in_danger = 0
         if zone_id >= 0 and self.peer_is_fresh() and self.peer_state:
             p_zone = int(self.peer_state.get("zone", -1))
             if p_zone == zone_id:
+                in_danger = 1
+            if swapped:
                 in_danger = 1
         
         self.publish_v2v(zone_id, in_danger, eta, self.lap, x, y, self.my_flag)

@@ -118,7 +118,7 @@ class P12Follower(Node):
         self.allow_back = 0
 
         #flag
-        self.flag_threshold = 0.05
+        self.flag_threshold = 0.2
         self.my_flag = 0
 
         if self.is_cav1:
@@ -148,7 +148,6 @@ class P12Follower(Node):
         self.log_f = open(log_path, "w")
         self.log_f.write("t,y_r,w,w_pp,w_pid,P,I,D\n")
         self.t0 = self.get_clock().now()
-        self.t_prev = self.get_clock().now()
 
         # control I/O (simulator interface)
         self.sub = self.create_subscription(PoseStamped, "/Ego_pose", self.cb, qos_profile_sensor_data)
@@ -377,6 +376,10 @@ class P12Follower(Node):
         p_eta = float(self.peer_state["eta"])
         p_lap = int(self.peer_state.get("lap", -999))
 
+        # zone 1,2,6,7 지점 미리 감속
+        #if (pz in [1, 6] and my_zone in [7]) or (my_zone in [2] and pz in [1,6]):
+        #    return 0
+
         if pz != my_zone or p_lap != my_lap:
             return v_cmd
 
@@ -400,6 +403,7 @@ class P12Follower(Node):
         x = float(msg.pose.position.x)
         y = float(msg.pose.position.y)
         yaw = yaw_from_pose(msg)
+        GREEN = '\033[92m'
 
         i = self.nearest_index(x, y)
         idx_mod = i % self.N
@@ -427,15 +431,30 @@ class P12Follower(Node):
         dist_to_flag = math.sqrt((x - self.flag_target[0])**2 + (y - self.flag_target[1])**2)
         if dist_to_flag < self.flag_threshold:
             self.my_flag = 1
-        else:
-            self.my_flag = 0
+            self.get_logger().info(f"{GREEN}Flag 올림")
 
         zone_id, in_conflict, eta = self.compute_zone_state(idx_mod, self.v_ref)
+        swapped = False # Zone의 변경 체크
+        #CAV2 입장에서 내가 7번 zone에 있을 때 CAV1이 1번 Zone으로 들어오면 7->1로 바꿈.
+        #CAV2 입장에서 내가 2번 zone에 있을 때 CAV1이 6번 Zone으로 들어오면 2->6로 바꿈.
+        if zone_id == 7 and self.peer_is_fresh() and self.peer_state:
+            p_zone = int(self.peer_state.get("zone", -1))
+            if p_zone == 1:
+                zone_id = 1
+                swapped = True
+
+        if zone_id == 2 and self.peer_is_fresh() and self.peer_state:
+            p_zone = int(self.peer_state.get("zone", -1))
+            if p_zone == 6:
+                zone_id = 6
+                swapped = True
 
         in_danger = 0
         if zone_id >= 0 and self.peer_is_fresh() and self.peer_state:
             p_zone = int(self.peer_state.get("zone", -1))
             if p_zone == zone_id:
+                in_danger = 1
+            if swapped:
                 in_danger = 1
 
         self.publish_v2v(zone_id, in_danger, eta, self.lap, x, y, self.my_flag)
