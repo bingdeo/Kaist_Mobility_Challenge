@@ -1,0 +1,15 @@
+name: p1_bridge
+topics:
+  /CAV_29:
+    topic: /CAV_29
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 29
+    remap: /Ego_pose
+  
+  # /cmd_vel:
+  #   topic: /cmd_vel
+  #   type: geometry_msgs/msg/Twist
+  #   from_domain: 29
+  #   to_domain: 100
+  #   remap: /CAV_29_accel #may be fixed
