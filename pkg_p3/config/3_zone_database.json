@@ -1,0 +1,406 @@
+[
+  {
+    "zone_id": 1,
+    "path1": {
+      "monitor_start_idx": 124,
+      "monitor_start_xy": [
+        -2.67885175097045,
+        2.35638138316309
+      ],
+      "conflict_start_idx": 324,
+      "conflict_start_xy": [
+        -2.35702004199326,
+        0.430901648784478
+      ],
+      "conflict_end_idx": 335,
+      "conflict_end_xy": [
+        -2.30559395015765,
+        0.334378178510477
+      ]
+    },
+    "path2": {
+      "monitor_start_idx": 0,
+      "monitor_start_xy": [
+        -3.46666666666667,
+        -0.108333333333333
+      ],
+      "conflict_start_idx": 126,
+      "conflict_start_xy": [
+        -2.36107271650902,
+        0.334378178510476
+      ],
+      "conflict_end_idx": 137,
+      "conflict_end_xy": [
+        -2.30964662467341,
+        0.430901648784478
+      ]
+    },
+    "path3": {
+      "monitor_start_idx": 1018,
+      "monitor_start_xy": [
+        -0.273733273403066,
+        0.358676062556272
+      ],
+      "conflict_start_idx": 1218,
+      "conflict_start_xy": [
+        -2.27,
+        0.358333333333333
+      ],
+      "conflict_end_idx": 1228,
+      "conflict_end_xy": [
+        -2.37,
+        0.358333333333333
+      ]
+    }
+  },
+  {
+    "zone_id": 2,
+    "path1": {
+      "monitor_start_idx": 179,
+      "monitor_start_xy": [
+        -2.458620598876,
+        1.86993242281312
+      ],
+      "conflict_start_idx": 379,
+      "conflict_start_xy": [
+        -1.99895515482286,
+        0.0277393831756845
+      ],
+      "conflict_end_idx": 390,
+      "conflict_end_xy": [
+        -1.90243168454886,
+        -0.023686708659927
+      ]
+    },
+    "path2": {
+      "monitor_start_idx": 1017,
+      "monitor_start_xy": [
+        0.0891333333333333,
+        0.108333333333333
+      ],
+      "conflict_start_idx": 1217,
+      "conflict_start_xy": [
+        -1.90243168454886,
+        0.023686708659927
+      ],
+      "conflict_end_idx": 1228,
+      "conflict_end_xy": [
+        -1.99895515482286,
+        -0.0277393831756843
+      ]
+    }
+  },
+  {
+    "zone_id": 3,
+    "path1": {
+      "monitor_start_idx": 1259,
+      "monitor_start_xy": [
+        -1.98781491569622,
+        -2.35638138316309
+      ],
+      "conflict_start_idx": 1459,
+      "conflict_start_xy": [
+        -2.30964662467341,
+        -0.430901648784478
+      ],
+      "conflict_end_idx": 1470,
+      "conflict_end_xy": [
+        -2.36107271650902,
+        -0.334378178510477
+      ]
+    },
+    "path2": {
+      "monitor_start_idx": 1072,
+      "monitor_start_xy": [
+        -0.460866666666667,
+        0.108333333333333
+      ],
+      "conflict_start_idx": 1272,
+      "conflict_start_xy": [
+        -2.30559395015765,
+        -0.334378178510476
+      ],
+      "conflict_end_idx": 1283,
+      "conflict_end_xy": [
+        -2.35702004199326,
+        -0.430901648784478
+      ]
+    },
+    "path4": {
+      "monitor_start_idx": 144,
+      "monitor_start_xy": [
+        -4.39,
+        -0.358333333333333
+      ],
+      "conflict_start_idx": 344,
+      "conflict_start_xy": [
+        -2.39666666666667,
+        -0.358333333333333
+      ],
+      "conflict_end_idx": 354,
+      "conflict_end_xy": [
+        -2.29666666666667,
+        -0.358333333333333
+      ]
+    }
+  },
+  {
+    "zone_id": 4,
+    "path1": {
+      "monitor_start_idx": 1314,
+      "monitor_start_xy": [
+        -2.20804606779066,
+        -1.86993242281312
+      ],
+      "conflict_start_idx": 1514,
+      "conflict_start_xy": [
+        -2.66771151184381,
+        -0.0277393831756843
+      ],
+      "conflict_end_idx": 1525,
+      "conflict_end_xy": [
+        -2.76423498211781,
+        0.023686708659927
+      ]
+    },
+    "path2": {
+      "monitor_start_idx": 0,
+      "monitor_start_xy": [
+        -3.46666666666667,
+        -0.108333333333333
+      ],
+      "conflict_start_idx": 71,
+      "conflict_start_xy": [
+        -2.76423498211781,
+        -0.0236867086599271
+      ],
+      "conflict_end_idx": 82,
+      "conflict_end_xy": [
+        -2.66771151184381,
+        0.0277393831756843
+      ]
+    }
+  },
+  {
+    "zone_id": 5,
+    "path1": {
+      "monitor_start_idx": 0,
+      "monitor_start_xy": [
+        -3.875,
+        2.55
+      ],
+      "conflict_start_idx": 124,
+      "conflict_start_xy": [
+        -2.67885175097045,
+        2.35638138316309
+      ],
+      "conflict_end_idx": 137,
+      "conflict_end_xy": [
+        -2.59278271725491,
+        2.25977027416341
+      ]
+    },
+    "path3": {
+      "monitor_start_idx": 114,
+      "monitor_start_xy": [
+        -4.68941639759073,
+        2.29952658685148
+      ],
+      "conflict_start_idx": 314,
+      "conflict_start_xy": [
+        -2.695,
+        2.30833333333333
+      ],
+      "conflict_end_idx": 326,
+      "conflict_end_xy": [
+        -2.575,
+        2.30833333333333
+      ]
+    }
+  },
+  {
+    "zone_id": 8,
+    "path1": {
+      "monitor_start_idx": 468,
+      "monitor_start_xy": [
+        -1.13666666666667,
+        -0.108333333333333
+      ],
+      "conflict_start_idx": 668,
+      "conflict_start_xy": [
+        0.690612584194791,
+        -0.312959147637491
+      ],
+      "conflict_end_idx": 766,
+      "conflict_end_xy": [
+        1.35562440312313,
+        -0.976666632116461
+      ]
+    },
+    "path4": {
+      "monitor_start_idx": 450,
+      "monitor_start_xy": [
+        -1.33666666666667,
+        -0.358333333333333
+      ],
+      "conflict_start_idx": 650,
+      "conflict_start_xy": [
+        0.656666666666667,
+        -0.358333333333333
+      ],
+      "conflict_end_idx": 750,
+      "conflict_end_xy": [
+        1.30826666666667,
+        -1.01013333333333
+      ]
+    }
+  },
+  {
+    "zone_id": 9,
+    "path1": {
+      "monitor_start_idx": 1060,
+      "monitor_start_xy": [
+        -0.04,
+        -2.55
+      ],
+      "conflict_start_idx": 1260,
+      "conflict_start_xy": [
+        -1.99506319051258,
+        -2.34953933153448
+      ],
+      "conflict_end_idx": 1272,
+      "conflict_end_xy": [
+        -2.07388394941176,
+        -2.25977027416341
+      ]
+    },
+    "path4": {
+      "monitor_start_idx": 989,
+      "monitor_start_xy": [
+        0.02,
+        -2.30233333333333
+      ],
+      "conflict_start_idx": 1189,
+      "conflict_start_xy": [
+        -1.97833333333333,
+        -2.30233333333333
+      ],
+      "conflict_end_idx": 1201,
+      "conflict_end_xy": [
+        -2.09833333333333,
+        -2.30233333333333
+      ]
+    }
+  },
+  {
+    "zone_id": 6,
+    "path2": {
+      "monitor_start_idx": 124,
+      "monitor_start_xy": [
+        -2.37163231771669,
+        0.31751519103892
+      ],
+      "conflict_start_idx": 324,
+      "conflict_start_xy": [
+        -2.09408376188982,
+        2.2596992776953
+      ],
+      "conflict_end_idx": 337,
+      "conflict_end_xy": [
+        -2.01022791990386,
+        2.35760347644883
+      ]
+    },
+    "path3": {
+      "monitor_start_idx": 172,
+      "monitor_start_xy": [
+        -4.11,
+        2.30833333333333
+      ],
+      "conflict_start_idx": 372,
+      "conflict_start_xy": [
+        -2.115,
+        2.30833333333333
+      ],
+      "conflict_end_idx": 384,
+      "conflict_end_xy": [
+        -1.995,
+        2.30833333333333
+      ]
+    }
+  },
+  {
+    "zone_id": 7,
+    "path2": {
+      "monitor_start_idx": 642,
+      "monitor_start_xy": [
+        1.01720972867433,
+        2.53797158853884
+      ],
+      "conflict_start_idx": 842,
+      "conflict_start_xy": [
+        1.35562440312313,
+        0.976666632116461
+      ],
+      "conflict_end_idx": 939,
+      "conflict_end_xy": [
+        0.690612584194791,
+        0.312959147637491
+      ]
+    },
+    "path3": {
+      "monitor_start_idx": 625,
+      "monitor_start_xy": [
+        0.411666666666667,
+        2.30833333333333
+      ],
+      "conflict_start_idx": 825,
+      "conflict_start_xy": [
+        1.30833333333333,
+        1.01
+      ],
+      "conflict_end_idx": 925,
+      "conflict_end_xy": [
+        0.656266669724333,
+        0.358350819518177
+      ]
+    }
+  },
+  {
+    "zone_id": 10,
+    "path2": {
+      "monitor_start_idx": 1270,
+      "monitor_start_xy": [
+        -2.29503434894997,
+        -0.31751519103892
+      ],
+      "conflict_start_idx": 1470,
+      "conflict_start_xy": [
+        -2.59278271725491,
+        -2.25977027416341
+      ],
+      "conflict_end_idx": 1482,
+      "conflict_end_xy": [
+        -2.67160347615408,
+        -2.34953933153448
+      ]
+    },
+    "path4": {
+      "monitor_start_idx": 1048,
+      "monitor_start_xy": [
+        -0.568333333333333,
+        -2.30233333333333
+      ],
+      "conflict_start_idx": 1248,
+      "conflict_start_xy": [
+        -2.56833333333333,
+        -2.30233333333333
+      ],
+      "conflict_end_idx": 1260,
+      "conflict_end_xy": [
+        -2.68833333333333,
+        -2.30233333333333
+      ]
+    }
+  }
+]

@@ -1,0 +1,35 @@
+name: bridge_cav1
+topics:
+  /p3_v2v/cav2/state:
+    type: pkg_p3/msg/V2VState
+    from_domain: 2
+    to_domain: 1
+    remap: /p3_v2v/peer/state
+    qos:
+      reliability: reliable
+
+  /p3_v2v/cav3/state:
+    type: pkg_p3/msg/V2VState
+    from_domain: 3
+    to_domain: 1
+    remap: /p3_v2v/peer/state
+    qos:
+      reliability: reliable
+
+  /p3_v2v/cav4/state:
+    type: pkg_p3/msg/V2VState
+    from_domain: 4
+    to_domain: 1
+    remap: /p3_v2v/peer/state
+    qos:
+      reliability: reliable
+
+  /HV_19:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+
+  /HV_20:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
