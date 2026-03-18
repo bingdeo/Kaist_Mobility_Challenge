@@ -1,0 +1,87 @@
+name: p2_bridge
+
+topics:
+  /CAV_01:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+    remap: /Ego_pose
+
+  /HV_19:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_20:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_21:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_22:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_23:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_24:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_25:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_26:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_27:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_28:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_29:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_30:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_31:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_32:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_33:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_34:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_35:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+  /HV_36:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+
+  /Accel:
+    type: geometry_msgs/msg/Accel
+    from_domain: 1
+    to_domain: 100
+    remap: /CAV_01_accel
